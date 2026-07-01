@@ -1,0 +1,10 @@
+
+
+# Create test programs to verify project functionality (not submitted or graded). Use
+# frameworks like pytest or unittest for unit tests, covering edge cases.
+
+# Constraints
+• Any library that helps with graph logic is forbidden (such as networkx, graphlib,
+etc.).
+• The project must be completely typesafe. Using flake8 and mypy is mandatory.
+• The project must be completely object-oriented.
