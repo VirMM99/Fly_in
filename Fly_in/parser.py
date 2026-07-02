@@ -1,4 +1,4 @@
-from typing import Any
+from hub import Hub
 
 
 class Parser:
@@ -6,13 +6,13 @@ class Parser:
     def __init__(self, filename: str) -> None:
         self.filename: str = filename
         self.nb_drones: int = 0
-        self.start: dict[str, Any] | None = None
-        self.end: dict[str, Any] | None = None
-        self.hubs: list[dict[str, Any]] = []
+        self.start: Hub | None = None
+        self.end: Hub | None = None
+        self.hubs: list[Hub] = []
         # Is list tuple because it has two names
         self.connections: list[tuple[str, str]] = []
 
-    def parse(self):
+    def parse(self) -> None:
         """Read the map file line by line"""
         # encoding is to save everithing in numbers of bytes
         # the archive is write usidng UTF-8, that represent any char
@@ -45,40 +45,39 @@ class Parser:
         text = line.replace("nb_drones:", "").strip()
         self.nb_drones = int(text)
 
+    # To separate the hub from the metadata so we can read
+    def _parse_hub_data(self, text: str) -> Hub:
+        """Create a Hub object from text"""
+        if "[" in text:
+            text = text.split("[")[0].strip()
+        parts = text.split()
+        if len(parts) != 3:
+            raise ValueError("Invalid hub definition")
+        name = parts[0]
+        x = int(parts[1])
+        y = int(parts[2])
+
+        return Hub(
+            name=name,
+            x=x,
+            y=y
+        )
+
     def parse_start(self, line: str) -> None:
         """Parse the start hub"""
-        print("Start hub")
+        text = line.replace("start_hub:", "").strip()
+        self.start = self._parse_hub_data(text)
 
     def parse_end(self, line: str) -> None:
         """Parse the end hub"""
-        print("End hub")
+        text = line.replace("end_hub:", "").strip()
+        self.end = self._parse_hub_data(text)
 
     def parse_hub(self, line: str) -> None:
         """Parse a regular hub"""
-        print("Hub")
+        text = line.replace("hub:", "").strip()
+        self.hubs.append(self._parse_hub_data(text))
 
     def parse_connection(self, line: str) -> None:
         """Parse a connection"""
         print("Connection")
-
-
-# self.hubs.append(...)
-
-# number = int(...)
-# parts = text.split()
-# name = parts[0]
-# x = int(parts[1])
-# y = int(parts[2])
-
-# first, second = text.split("-")
-
-# number_of_drones = 5
-
-# start = Hub(...)
-# end = Hub(...)
-
-# graph = {
-#     "hub": ["roof1"],
-#     "roof1": ["hub", "roof2"],
-#     "roof2": ["roof1", "goal"]
-# }
