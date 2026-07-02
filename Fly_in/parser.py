@@ -9,13 +9,12 @@ class Parser:
         self.start: Hub | None = None
         self.end: Hub | None = None
         self.hubs: list[Hub] = []
-        # Is list tuple because it has two names
         self.connections: list[tuple[str, str]] = []
 
     def parse(self) -> None:
         """Read the map file line by line"""
         # encoding is to save everithing in numbers of bytes
-        # the archive is write usidng UTF-8, that represent any char
+        # the archive is write using UTF-8, that represent any char
         with open(self.filename, "r", encoding="utf-8") as file:
             for line in file:
                 # To delete \n
@@ -23,11 +22,9 @@ class Parser:
                 # Ignore empty lines
                 if not line:
                     continue
-                # Ignore commets
+                # Ignore comments
                 if line.startswith("#"):
                     continue
-
-                print(line)
 
                 if line.startswith("nb_drones:"):
                     self.parse_nb_drones(line)
@@ -48,6 +45,7 @@ class Parser:
     # To separate the hub from the metadata so we can read
     def _parse_hub_data(self, text: str) -> Hub:
         """Create a Hub object from text"""
+        metadata = self._parse_metadata(text)
         if "[" in text:
             text = text.split("[")[0].strip()
         parts = text.split()
@@ -56,12 +54,33 @@ class Parser:
         name = parts[0]
         x = int(parts[1])
         y = int(parts[2])
+        zone = metadata.get("zone", "normal")
+        color = metadata.get("color", "none")
+        max_drones = int(metadata.get("max_drones", "1"))
 
         return Hub(
             name=name,
             x=x,
-            y=y
+            y=y,
+            zone=zone,
+            color=color,
+            max_drones=max_drones
         )
+
+    def _parse_metadata(self, text: str) -> dict[str, str]:
+        """Extract [metadata] from a hub or connection"""
+        if "[" not in text:
+            return {}
+
+        metadata_text = text.split("[", maxsplit=1)[1]
+        metadata_text = metadata_text.rstrip("]")
+
+        metadata: dict[str, str] = {}
+        for item in metadata_text.split():
+            key, value = item.split("=", maxsplit=1)
+            metadata[key] = value
+
+        return metadata
 
     def parse_start(self, line: str) -> None:
         """Parse the start hub"""

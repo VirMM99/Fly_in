@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class Hub:
-    """Represente a hub in the graph"""
+    """Represent a hub in the graph"""
 
     name: str
     x: int
