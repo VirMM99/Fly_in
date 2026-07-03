@@ -36,27 +36,57 @@ class Parser:
                     self.parse_hub(line)
                 elif line.startswith("connection:"):
                     self.parse_connection(line)
+                else:
+                    raise ValueError(f"Unknown line: {line}")
 
     def parse_nb_drones(self, line: str) -> None:
         """Parse the number of drones"""
         text = line.replace("nb_drones:", "").strip()
-        self.nb_drones = int(text)
+        try:
+            self.nb_drones = int(text)
+        except ValueError as exc:
+            raise ValueError("nb_drones must be an integer") from exc
+        if self.nb_drones <= 0:
+            raise ValueError("nb_drones must be positive")
 
     # To separate the hub from the metadata so we can read
     def _parse_hub_data(self, text: str) -> Hub:
         """Create a Hub object from text"""
         metadata = self._parse_metadata(text)
+
+        VALID_METADATA = {"zone", "color", "max_drones"}
+        for key in metadata:
+            if key not in VALID_METADATA:
+                raise ValueError(f"Unknown metadata: {key}")
+        VALID_ZONES = {"normal", "blocked", "restricted", "priority"}
+        zone = metadata.get("zone", "normal")
+        if zone not in VALID_ZONES:
+            raise ValueError(f"Invalid zone type: {zone}")
+
         if "[" in text:
             text = text.split("[")[0].strip()
+
         parts = text.split()
         if len(parts) != 3:
             raise ValueError("Invalid hub definition")
         name = parts[0]
-        x = int(parts[1])
-        y = int(parts[2])
-        zone = metadata.get("zone", "normal")
+        if "-" in name:
+            raise ValueError("Hub names cannot contain '-'")
+
+        try:
+            x = int(parts[1])
+            y = int(parts[2])
+        except ValueError as exc:
+            raise ValueError("Coordinates must be integers") from exc
+
+
         color = metadata.get("color", "none")
-        max_drones = int(metadata.get("max_drones", "1"))
+        try:
+            max_drones = int(metadata.get("max_drones", "1"))
+        except ValueError as exc:
+            raise ValueError("max_drones must be an integer") from exc
+        if max_drones <= 0:
+            raise ValueError("max_drones must be positive")
 
         return Hub(
             name=name,
@@ -76,7 +106,11 @@ class Parser:
         metadata_text = metadata_text.rstrip("]")
 
         metadata: dict[str, str] = {}
-        for item in metadata_text.split():
+
+        for item in metadata_text.split()
+            if "=" not in item:
+                raise ValueError("Invalid metadata syntax")
+
             key, value = item.split("=", maxsplit=1)
             metadata[key] = value
 
@@ -85,11 +119,15 @@ class Parser:
     def parse_start(self, line: str) -> None:
         """Parse the start hub"""
         text = line.replace("start_hub:", "").strip()
+        if self.start is not None:
+            raise ValueError("Multiple start hubs")
         self.start = self._parse_hub_data(text)
 
     def parse_end(self, line: str) -> None:
         """Parse the end hub"""
         text = line.replace("end_hub:", "").strip()
+        if self.end is not None:
+            raise ValueError("Multiple end hubs")
         self.end = self._parse_hub_data(text)
 
     def parse_hub(self, line: str) -> None:
