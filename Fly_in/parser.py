@@ -66,51 +66,44 @@ class Parser:
             raise ValueError("nb_drones must be positive")
 
     # To separate the hub from the metadata so we can read
-    def _parse_hub_data(self, text: str) -> Hub:
-        """Create a Hub object from text"""
+    def _parse_hub_data(self, text: str, line_number: int) -> Hub:
+        """Create a Hub object from text.
+        Args:
+            text: The raw text line belonging to the hub.
+            line_number: Current line number for accurate error logging
+        """
         metadata = self._parse_metadata(text)
 
         for key in metadata:
             if key not in VALID_METADATA:
-                raise ValueError(f"Unknown metadata: {key}")
+                raise ValueError(f"Line {line_number}: Unknown metadata: {key}")
 
         if "[" in text:
             text = text.split("[")[0].strip()
 
         parts = text.split()
         if len(parts) != 3:
-            raise ValueError("Invalid hub definition")
+            raise ValueError(f"Line {line_number}: Invalid hub definition")
 
         name = parts[0]
         if " " in name:
-            raise ValueError("Hub names cannot contain spaces")
+            raise ValueError(f"Line {line_number}: Hub names cannot contain spaces")
         if "-" in name:
-            raise ValueError("Hub names cannot contain '-'")
-
-        try:
-            x = int(parts[1])
-            y = int(parts[2])
-        except ValueError as exc:
-            raise ValueError("Coordinates must be integers") from exc
-
-        color = metadata.get("color", "none")
-        try:
-            max_drones = int(metadata.get("max_drones", "1"))
-        except ValueError as exc:
-            raise ValueError("max_drones must be an integer") from exc
-        zone = metadata.get("zone", "normal")
+            raise ValueError(f"Line {line_number}: Hub names cannot contain '-'")
 
         try:
             return Hub(
                 name=name,
-                x=x,
-                y=y,
-                zone=zone,
-                color=color,
-                max_drones=max_drones
+                x=x[1],
+                y=y[2],
+                zone=metadata.get("zone", "normal"),
+                color=metadata.get("color", "none"),
+                max_drones=metadata.get("max_drones", "1")
             )
         except ValidationError as exc:
-            raise ValueError(str(exc)) from exc
+            errors = exc.errors()
+            custom_msg = errors[0]["msg"] if errors else "Invalid values"
+            raise ValueError(f"Line {line_number}: {custom_msg}") from exc
 
     def _parse_metadata(self, text: str) -> dict[str, str]:
         """Extract [metadata] from a hub or connection"""
