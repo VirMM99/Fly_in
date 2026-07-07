@@ -173,3 +173,35 @@ class Parser:
 
             if "=" not in text:
                 raise ValueError(f"Line {line_number}: Connections must use 'hub1-hub2' format")
+            names = text.split("-")
+            if len(names) != 2:
+                raise ValueError(f"Line {line_number}: Invalid connection format")
+
+            name1, name2 = names[0].strip(), names[1].strip()
+
+            if name1 not in self.hubs_by_name:
+                raise ValueError(f"Line {line_number}: Hub '{name1}' is not defined")
+            if name2 not in self.hubs_by_name:
+                raise ValueError(f"Line {line_number}: Hub '{name2}' is not defined")
+
+            hub1 = self.hubs_by_name[name1]
+            hub2 = self.hubs_by_name[name2]
+
+            """Validating duplicates in both direction (a-b and b-a)"""
+            for conn in self.connections:
+                if(conn.hub1.name == name1 and conn.hub2.name == name2) or \
+                    (conn.hub1.name == name2 and conn.hub2.name == name1)
+                    raise ValueError(f"Line {line_number}: Duplicate connection between {name1} and"
+                                        f"{name2}"
+                                        )
+                try:
+                    connection = Connection(
+                        hub1=hub1,
+                        hub2=hub2,
+                        max_link_capacity=metadata.get("max_link_capacity", "1")
+                    )
+                    self.connections.append(connection)
+                except ValidationError as exc:
+                    errors = exc.errors()
+                    custom_msg = errors[0]["msg"] if errors else "Invalid values"
+                    raise ValueError(f"Line {line_number}: {custom_msg}") from exc
