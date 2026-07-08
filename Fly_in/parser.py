@@ -19,7 +19,7 @@ class Parser:
 
     def parse(self) -> None:
         """Read the map file line by line"""
-        # encoding is to save everithing in numbers of bytes
+        # encoding is to save everything in numbers of bytes
         # the archive is write using UTF-8, that represent any char
         try:
             with open(self.filename, "r", encoding="utf-8") as file:
@@ -131,7 +131,7 @@ class Parser:
         text = line.replace("start_hub:", "").strip()
         hub = self._parse_hub_data(text, line_number)
 
-        """Bacause de subject said max_drone hav to be ignore. Be infinite"""
+        """Bacause de subject said max_drone have to be ignore. Be infinite"""
         hub.max_drones = 999999
 
         if hub.name in self.hubs_by_name:
@@ -194,8 +194,8 @@ class Parser:
 
         """Validating duplicates in both direction (a-b and b-a)"""
         for conn in self.connections:
-            if (conn.hub1.name == name1 and conn.hub2.name == name2) or \
-               (conn.hub1.name == name2 and conn.hub2.name == name1):
+            if  (conn.hub1.name == name1 and conn.hub2.name == name2) or \
+                (conn.hub1.name == name2 and conn.hub2.name == name1):
                 raise ValueError(f"Line {line_number}: Duplicate connection between {name1} and"
                                     f"{name2}"
                                     )
