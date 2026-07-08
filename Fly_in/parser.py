@@ -4,7 +4,7 @@ from pydantic import ValidationError
 
 
 VALID_HUB_METADATA = {"zone", "color", "max_drones"}
-VALID_CONN_METADATA = {"max_link_ca`pacity"}
+VALID_CONN_METADATA = {"max_link_capacity"}
 
 class Parser:
     """Read and parse a drone map file acccording to subject constrains"""
@@ -44,7 +44,7 @@ class Parser:
                         raise ValueError(f"Line {line_number}: Unknown line")
 
                 if self.nb_drones <= 0:
-                    raise ValueError("Parsing Error: Missing or invalidnb_drones")
+                    raise ValueError("Parsing Error: Missing or invalid nb_drones")
                 if self.start is None:
                     raise ValueError("Parsing Error: Missing start_hub zone")
                 if self.end is None:
@@ -89,11 +89,11 @@ class Parser:
         try:
             return Hub(
                 name=name,
-                x=parts[1],
-                y=parts[2],
+                x=int(parts[1]),
+                y=int(parts[2]),
                 zone=metadata.get("zone", "normal"),
                 color=metadata.get("color", "none"),
-                max_drones=metadata.get("max_drones", "1")
+                max_drones=int(metadata.get("max_drones", 1))
             )
         except ValidationError as exc:
             errors = exc.errors()
@@ -131,6 +131,9 @@ class Parser:
         text = line.replace("start_hub:", "").strip()
         hub = self._parse_hub_data(text, line_number)
 
+        """Bacause de subject said max_drone hav to be ignore. Be infinite"""
+        hub.max_drones = 999999
+
         if hub.name in self.hubs_by_name:
             raise ValueError(f"Line {line_number}: Duplicate start hub: {hub.name}")
         self.start = hub
@@ -143,6 +146,8 @@ class Parser:
 
         text = line.replace("end_hub:", "").strip()
         hub = self._parse_hub_data(text, line_number)
+
+        hub.max_drones = 999999
 
         if hub.name in self.hubs_by_name:
             raise ValueError(f"Line {line_number}: Duplicate end hub: {hub.name}")
@@ -168,40 +173,40 @@ class Parser:
             if key not in VALID_CONN_METADATA:
                 raise ValueError(f"Line {line_number}: Unknown connection metadata: {key}")
 
-            if "[" in text:
-                text = text.split("[")[0].strip()
+        if "[" in text:
+            text = text.split("[")[0].strip()
 
-            if "=" not in text:
-                raise ValueError(f"Line {line_number}: Connections must use 'hub1-hub2' format")
-            names = text.split("-")
-            if len(names) != 2:
-                raise ValueError(f"Line {line_number}: Invalid connection format")
+        if "-" not in text:
+            raise ValueError(f"Line {line_number}: Connections must use 'hub1-hub2' format")
+        names = text.split("-")
+        if len(names) != 2:
+            raise ValueError(f"Line {line_number}: Invalid connection format")
 
-            name1, name2 = names[0].strip(), names[1].strip()
+        name1, name2 = names[0].strip(), names[1].strip()
 
-            if name1 not in self.hubs_by_name:
-                raise ValueError(f"Line {line_number}: Hub '{name1}' is not defined")
-            if name2 not in self.hubs_by_name:
-                raise ValueError(f"Line {line_number}: Hub '{name2}' is not defined")
+        if name1 not in self.hubs_by_name:
+            raise ValueError(f"Line {line_number}: Hub '{name1}' is not defined")
+        if name2 not in self.hubs_by_name:
+            raise ValueError(f"Line {line_number}: Hub '{name2}' is not defined")
 
-            hub1 = self.hubs_by_name[name1]
-            hub2 = self.hubs_by_name[name2]
+        hub1 = self.hubs_by_name[name1]
+        hub2 = self.hubs_by_name[name2]
 
-            """Validating duplicates in both direction (a-b and b-a)"""
-            for conn in self.connections:
-                if(conn.hub1.name == name1 and conn.hub2.name == name2) or \
-                    (conn.hub1.name == name2 and conn.hub2.name == name1)
-                    raise ValueError(f"Line {line_number}: Duplicate connection between {name1} and"
-                                        f"{name2}"
-                                        )
-                try:
-                    connection = Connection(
-                        hub1=hub1,
-                        hub2=hub2,
-                        max_link_capacity=metadata.get("max_link_capacity", "1")
-                    )
-                    self.connections.append(connection)
-                except ValidationError as exc:
-                    errors = exc.errors()
-                    custom_msg = errors[0]["msg"] if errors else "Invalid values"
-                    raise ValueError(f"Line {line_number}: {custom_msg}") from exc
+        """Validating duplicates in both direction (a-b and b-a)"""
+        for conn in self.connections:
+            if (conn.hub1.name == name1 and conn.hub2.name == name2) or \
+               (conn.hub1.name == name2 and conn.hub2.name == name1):
+                raise ValueError(f"Line {line_number}: Duplicate connection between {name1} and"
+                                    f"{name2}"
+                                    )
+        try:
+            connection = Connection(
+                hub1=hub1,
+                hub2=hub2,
+                max_link_capacity=int(metadata.get("max_link_capacity", 1))
+            )
+            self.connections.append(connection)
+        except ValidationError as exc:
+            errors = exc.errors()
+            custom_msg = errors[0]["msg"] if errors else "Invalid values"
+            raise ValueError(f"Line {line_number}: {custom_msg}") from exc
