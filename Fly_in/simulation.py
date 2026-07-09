@@ -2,7 +2,7 @@ from hub import Hub
 from connection import Connection
 
 class Drone:
-    """Representes a drone inside the simulation"""
+    """Represents a drone inside the simulation"""
     def __init__(self, drone_id: int, path: list[Hub]) -> None:
         self.id: int = drone_id
         # Ordered list of Hubs from start to end
@@ -27,7 +27,7 @@ class Drone:
         return self.current_step == len(self.path) - 1
 
 class Simulation:
-    """Manages the simulation turn engine and map constrains"""
+    """Manages the simulation turn engine and map constraints"""
     def __init__(self, nb_drones: int, start_hub: Hub, end_hub: Hub, connections: list[Connection]) -> None:
         self.nb_drones: int = nb_drones
         self.start_hub: Hub = start_hub
@@ -57,11 +57,11 @@ class Simulation:
             self.current_turn += 1
             turn_moves = []
 
-            # Dict to manage capacity constrains for the current turn
+            # Dict to manage capacity constraints for the current turn
             # Key: hub name -> number of drones occupying or arriving at the hub
             hub_occupancy: dict[str, int] = {}
 
-            # Populate occupancy with drones that are static os still waiting
+            # Populate occupancy with drones that are static or still waiting
             # out a restriction
             for drone in self.drones:
                 if drone.has_arrived() or drone.turns_remaining > 0:
@@ -86,8 +86,8 @@ class Simulation:
                 if target_hub is None:
                     continue
 
-                # Contrain validation: Check max_drones capacity at target hub
-                current_hub_drones= hub_occupancy.get(target_hub.name, 0)
+                # Constraint validation: Check max_drones capacity at target hub
+                current_hub_drones = hub_occupancy.get(target_hub.name, 0)
                 if current_hub_drones >= target_hub.max_drones:
                     continue
                 # Check max_link_capacity for the chosen connection
