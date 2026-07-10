@@ -1,6 +1,7 @@
 from hub import Hub
 from connection import Connection
 
+
 class Drone:
     """Represents a drone inside the simulation"""
     def __init__(self, drone_id: int, path: list[Hub]) -> None:
@@ -26,9 +27,16 @@ class Drone:
         """Checks if the drone has reached the destination hub"""
         return self.current_step == len(self.path) - 1
 
+
 class Simulation:
     """Manages the simulation turn engine and map constraints"""
-    def __init__(self, nb_drones: int, start_hub: Hub, end_hub: Hub, connections: list[Connection]) -> None:
+    def __init__(
+            self,
+            nb_drones: int,
+            start_hub: Hub,
+            end_hub: Hub,
+            connections: list[Connection]
+            ) -> None:
         self.nb_drones: int = nb_drones
         self.start_hub: Hub = start_hub
         self.end_hub: Hub = end_hub
@@ -40,16 +48,19 @@ class Simulation:
         self.log_output: list[str] = []
 
     def initialize_drones(self, paths_by_drone: dict[int, list[Hub]]) -> None:
-        """Initializes all drones with paths computed by the pathfinder algorithm
+        """Initializes all drones with paths
+            computed by the pathfinder algorithm
         Args:
-            paths_by_drone: Dictionary mapping drone IDs(1..N) to their list of Hubs
+            paths_by_drone: Dictionary mapping drone
+            IDs(1..N) to their list of Hubs
         """
         for drone_id in range(1, self.nb_drones + 1):
             path = paths_by_drone.get(drone_id, [self.start_hub])
             self.drones.append(Drone(drone_id, path))
 
     def run(self) -> list[str]:
-        """Runs the turn-by-turn simulation until all drones reach the destination"""
+        """Runs the turn-by-turn simulation
+            until all drones reach the destination"""
         self.current_turn = 0
         self.log_output = []
 
@@ -58,7 +69,8 @@ class Simulation:
             turn_moves = []
 
             # Dict to manage capacity constraints for the current turn
-            # Key: hub name -> number of drones occupying or arriving at the hub
+            # Key: hub name -> number of drones
+            # occupying or arriving at the hub
             hub_occupancy: dict[str, int] = {}
 
             # Populate occupancy with drones that are static or still waiting
@@ -66,9 +78,12 @@ class Simulation:
             for drone in self.drones:
                 if drone.has_arrived() or drone.turns_remaining > 0:
                     current_hub_name = drone.get_current_hub().name
-                    hub_occupancy[current_hub_name] = hub_occupancy.get(current_hub_name, 0) + 1
+                    hub_occupancy[current_hub_name] = (
+                        hub_occupancy.get(current_hub_name, 0) + 1
+                        )
 
-            # Key: (src_hub, dst_hub) -> num of drones crossing the link this turn
+            # Key: (src_hub, dst_hub) -> num of drones
+            # crossing the link this turn
             link_occupancy: dict[tuple[str, str], int] = {}
 
             # Process delayed drones traversing restricted zones
@@ -78,7 +93,7 @@ class Simulation:
 
             # Try to move stationary drones standing at a hub
             for drone in self.drones:
-                # If already arrived or still mid-transit (waiting turns), 
+                # If already arrived or still mid-transit (waiting turns),
                 # it cannot initiate a new move
                 if drone.has_arrived() or drone.turns_remaining > 0:
                     continue
@@ -86,7 +101,8 @@ class Simulation:
                 if target_hub is None:
                     continue
 
-                # Constraint validation: Check max_drones capacity at target hub
+                # Constraint validation: Check max_drones capacity
+                # at target hub
                 current_hub_drones = hub_occupancy.get(target_hub.name, 0)
                 if current_hub_drones >= target_hub.max_drones:
                     continue
@@ -103,30 +119,46 @@ class Simulation:
                 # Execute move: register turn tracking occupancies
                 hub_occupancy[target_hub.name] = current_hub_drones + 1
                 link_occupancy[connection_key] = current_link_drones + 1
-                # Update step immediately so the log reflects the destination hub
+                # Update step immediately so the
+                # log reflects the destination hub
                 drone.current_step += 1
                 turn_moves.append(f"D{drone.id}-{target_hub.name}")
                 # Apply cost depending on the destination zone type
                 if target_hub.zone == "restricted":
-                    # Requires 2 turns total: 1 turn to move(this one)+1 turn locked waiting
+                    # Requires 2 turns total: 1 turn to move
+                    # (this one)+1 turn locked waiting
                     drone.turns_remaining = 1
                 else:
-                    # Normal zone requires exactly 1 turn total(ready to move next turn)
+                    # Normal zone requires exactly 1 turn
+                    # total(ready to move next turn)
                     drone.turns_remaining = 0
             # Store current turn logs if any moves were executed
             if turn_moves:
                 # Sort alphabetically by drone ID for standardized output
-                turn_moves.sort(key=lambda x: int(x.split("-")[0].replace("D", "")))
-                self.log_output.append(f"T{self.current_turn}: " + " ".join(turn_moves))
+                turn_moves.sort(
+                    key=lambda x: int(x.split("-")[0].replace("D", ""))
+                    )
+                self.log_output.append(
+                                    f"T{self.current_turn}: "
+                                    + " ".join(turn_moves))
             else:
-                # Prevent infinite loops if map is blocked or routing is invalid
-                raise RuntimeError(f"Simulation deadlocked at turn {self.current_turn}. Verify pathfinding logic")
+                # Prevent infinite loops if map
+                # is blocked or routing is invalid
+                raise RuntimeError(
+                                    "Simulation deadlocked at turn"
+                                    f" {self.current_turn}."
+                                    "Verify pathfinding logic"
+                                    )
         return self.log_output
 
     def _get_connection(self, hub1: Hub, hub2: Hub) -> Connection | None:
         """Finds the bidirectional Connection object between two Hubs"""
         for conn in self.connections:
-            if  (conn.hub1.name == hub1.name and conn.hub2.name == hub2.name) or \
-                (conn.hub1.name == hub2.name and conn.hub2.name == hub1.name):
+            if (
+                (conn.hub1.name == hub1.name
+                    and conn.hub2.name == hub2.name)
+                or (conn.hub1.name == hub2.name
+                    and conn.hub2.name == hub1.name)
+            ):
                 return conn
         return None

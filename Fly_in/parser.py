@@ -6,6 +6,7 @@ from pydantic import ValidationError
 VALID_HUB_METADATA = {"zone", "color", "max_drones"}
 VALID_CONN_METADATA = {"max_link_capacity"}
 
+
 class Parser:
     """Read and parse a drone map file acccording to subject constrains"""
     def __init__(self, filename: str) -> None:
@@ -44,7 +45,10 @@ class Parser:
                         raise ValueError(f"Line {line_number}: Unknown line")
 
                 if self.nb_drones <= 0:
-                    raise ValueError("Parsing Error: Missing or invalid nb_drones")
+                    raise ValueError(
+                                    "Parsing Error: Missing "
+                                    "or invalid nb_drones"
+                                    )
                 if self.start is None:
                     raise ValueError("Parsing Error: Missing start_hub zone")
                 if self.end is None:
@@ -58,7 +62,10 @@ class Parser:
         try:
             self.nb_drones = int(text)
         except ValueError as exc:
-            raise ValueError(f"Line {line_number}: nb_drones must be an integer") from exc
+            raise ValueError(
+                            f"Line {line_number}: "
+                            "nb_drones must be an integer"
+                        ) from exc
         if self.nb_drones <= 0:
             raise ValueError(f"Line {line_number}: nb_drones must be positive")
 
@@ -73,7 +80,10 @@ class Parser:
 
         for key in metadata:
             if key not in VALID_HUB_METADATA:
-                raise ValueError(f"Line {line_number}: Unknown metadata: {key}")
+                raise ValueError(
+                                f"Line {line_number}: "
+                                f"Unknown metadata: {key}"
+                                )
 
         if "[" in text:
             text = text.split("[")[0].strip()
@@ -84,7 +94,10 @@ class Parser:
 
         name = parts[0]
         if "-" in name:
-            raise ValueError(f"Line {line_number}: Hub names cannot contain '-'")
+            raise ValueError(
+                            f"Line {line_number}: "
+                            "Hub names cannot contain '-'"
+                            )
 
         try:
             return Hub(
@@ -103,7 +116,10 @@ class Parser:
     def _parse_metadata(self, text: str, line_number: int) -> dict[str, str]:
         """Extract [metadata] from a hub or connection"""
         if text.count("[") > 1 or text.count("]") > 1:
-            raise ValueError(f"Line {line_number}: Only one metadata block is allowed")
+            raise ValueError(
+                            f"Line {line_number}: "
+                            "Only one metadata block is allowed"
+                            )
         if "[" not in text:
             return {}
         if "[" in text and not text.endswith("]"):
@@ -114,11 +130,17 @@ class Parser:
 
         for item in metadata_text.split():
             if "=" not in item:
-                raise ValueError(f"Line {line_number}: Invalid metadata syntax")
+                raise ValueError(
+                                f"Line {line_number}: "
+                                "Invalid metadata syntax"
+                                )
 
             key, value = item.split("=", maxsplit=1)
             if key in metadata:
-                raise ValueError(f"Line {line_number}: Duplicate metadata '{key}'")
+                raise ValueError(
+                                f"Line {line_number}: "
+                                f"Duplicate metadata '{key}'"
+                                )
             metadata[key] = value
 
         return metadata
@@ -126,7 +148,10 @@ class Parser:
     def parse_start(self, line: str, line_number: int) -> None:
         """Parse the unique start hub"""
         if self.start is not None:
-            raise ValueError(f"Line {line_number}: Multiple start hubs defined")
+            raise ValueError(
+                            f"Line {line_number}: "
+                            "Multiple start hubs defined"
+                            )
 
         text = line.replace("start_hub:", "").strip()
         hub = self._parse_hub_data(text, line_number)
@@ -135,7 +160,10 @@ class Parser:
         hub.max_drones = 999999
 
         if hub.name in self.hubs_by_name:
-            raise ValueError(f"Line {line_number}: Duplicate start hub: {hub.name}")
+            raise ValueError(
+                            f"Line {line_number}: "
+                            f"Duplicate start hub: {hub.name}"
+                            )
         self.start = hub
         self.hubs_by_name[hub.name] = hub
 
@@ -150,7 +178,10 @@ class Parser:
         hub.max_drones = 999999
 
         if hub.name in self.hubs_by_name:
-            raise ValueError(f"Line {line_number}: Duplicate end hub: {hub.name}")
+            raise ValueError(
+                            f"Line {line_number}: "
+                            f"Duplicate end hub: {hub.name}"
+                            )
         self.end = hub
         self.hubs_by_name[hub.name] = hub
 
@@ -171,13 +202,19 @@ class Parser:
 
         for key in metadata:
             if key not in VALID_CONN_METADATA:
-                raise ValueError(f"Line {line_number}: Unknown connection metadata: {key}")
+                raise ValueError(
+                                f"Line {line_number}: "
+                                f"Unknown connection metadata: {key}"
+                                )
 
         if "[" in text:
             text = text.split("[")[0].strip()
 
         if "-" not in text:
-            raise ValueError(f"Line {line_number}: Connections must use 'hub1-hub2' format")
+            raise ValueError(
+                            f"Line {line_number}: "
+                            "Connections must use 'hub1-hub2' format"
+                            )
         names = text.split("-")
         if len(names) != 2:
             raise ValueError(f"Line {line_number}: Invalid connection format")
@@ -185,19 +222,30 @@ class Parser:
         name1, name2 = names[0].strip(), names[1].strip()
 
         if name1 not in self.hubs_by_name:
-            raise ValueError(f"Line {line_number}: Hub '{name1}' is not defined")
+            raise ValueError(
+                            f"Line {line_number}: "
+                            f"Hub '{name1}' is not defined"
+                            )
         if name2 not in self.hubs_by_name:
-            raise ValueError(f"Line {line_number}: Hub '{name2}' is not defined")
+            raise ValueError(
+                            f"Line {line_number}: "
+                            f"Hub '{name2}' is not defined"
+                            )
 
         hub1 = self.hubs_by_name[name1]
         hub2 = self.hubs_by_name[name2]
 
         """Validating duplicates in both direction (a-b and b-a)"""
         for conn in self.connections:
-            if  (conn.hub1.name == name1 and conn.hub2.name == name2) or \
-                (conn.hub1.name == name2 and conn.hub2.name == name1):
-                raise ValueError(f"Line {line_number}: Duplicate connection between {name1} and"
-                                    f"{name2}"
+            if (
+                (conn.hub1.name == name1
+                    and conn.hub2.name == name2)
+                or (conn.hub1.name == name2 and conn.hub2.name == name1)
+            ):
+                raise ValueError(
+                                f"Line {line_number}: "
+                                f"Duplicate connection between {name1} and"
+                                f"{name2}"
                                     )
         try:
             connection = Connection(
