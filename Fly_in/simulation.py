@@ -10,8 +10,7 @@ class Drone:
         self.path: list[Hub] = path
         # Current index inside the path list
         self.current_step: int = 0
-        # Remaining turns to wait before moving again
-        self.turns_remaining: int = 0
+        self.in_transit_to_restricted: bool = False
 
     def get_current_hub(self) -> Hub:
         """Returns the current Hub the drone is positioned at"""
@@ -41,7 +40,6 @@ class Simulation:
         self.start_hub: Hub = start_hub
         self.end_hub: Hub = end_hub
         self.connections: list[Connection] = connections
-
         self.drones: list[Drone] = []
         self.current_turn: int = 0
         # Stores final output lines (ex: "T1: D1-A D2-B")
@@ -71,67 +69,103 @@ class Simulation:
             # Dict to manage capacity constraints for the current turn
             # Key: hub name -> number of drones
             # occupying or arriving at the hub
+            # Track capacities for this specific turn snapshot
             hub_occupancy: dict[str, int] = {}
-
-            # Populate occupancy with drones that are static or still waiting
-            # out a restriction
-            for drone in self.drones:
-                if drone.has_arrived() or drone.turns_remaining > 0:
-                    current_hub_name = drone.get_current_hub().name
-                    hub_occupancy[current_hub_name] = (
-                        hub_occupancy.get(current_hub_name, 0) + 1
-                        )
-
             # Key: (src_hub, dst_hub) -> num of drones
             # crossing the link this turn
             link_occupancy: dict[tuple[str, str], int] = {}
 
-            # Process delayed drones traversing restricted zones
+            # 1) Pre-Populate capacity based on drones that cannot or will
+            # not move this turn
             for drone in self.drones:
-                if drone.turns_remaining > 0:
-                    drone.turns_remaining -= 1
-
-            # Try to move stationary drones standing at a hub
-            for drone in self.drones:
-                # If already arrived or still mid-transit (waiting turns),
-                # it cannot initiate a new move
-                if drone.has_arrived() or drone.turns_remaining > 0:
+                if drone.has_arrived():
                     continue
+                if drone.in_transit_to_restricted:
+                    #  Drone is currently inside the connection block,
+                    # occupaying its target arrival hub capacity
+                    target_hub = drone.get_next_hub()
+                    if target_hub:
+                        hub_occupancy[target_hub.name] = (
+                            hub_occupancy.get(target_hub.name, 0) + 1
+                            )
+                else:
+                    # Drone is static on its current hub for now
+                    current_hub = drone.get_current_hub()
+                    if current_hub.name != self.start_hub():
+                        hub_occupancy[current_hub.name] = (
+                            hub_occupancy.get(current_hub.name, 0) + 1
+                            )
+
+            # 2) Process actions for every drone
+            for drone in self.drones:
+                if drone.has_arrived():
+                    continue
+
+                # Case A: Drone was in flight to a restricted zone,
+                # it MUST land now
+                if drone.in_transit_to_restricted:
+                    drone.current_step += 1
+                    drone.in_transit_to_restricted = False
+                    # Omitted from logs because the movement action was
+                    # printed last turn
+                    continue
+
+                # Case B: Drone wants to initiate a new movement
                 target_hub = drone.get_next_hub()
                 if target_hub is None:
                     continue
+                current_hub = drone.get_current_hub()
 
-                # Constraint validation: Check max_drones capacity
-                # at target hub
-                current_hub_drones = hub_occupancy.get(target_hub.name, 0)
-                if current_hub_drones >= target_hub.max_drones:
+                # Capacity checks
+                if (
+                    target_hub.name != self.end_hub.name
+                    and (
+                        hub_occupancy.get(target_hub.name, 0)
+                        >= target_hub.max_drones
+                    )
+                ):
                     continue
-                # Check max_link_capacity for the chosen connection
-                current_drone_hub = drone.get_current_hub()
-                connection_key = (current_drone_hub.name, target_hub.name)
-                conn_obj = self._get_connection(current_drone_hub, target_hub)
+
+                conn_obj = self._get_connection(current_hub, target_hub)
                 max_link = conn_obj.max_link_capacity if conn_obj else 1
+                connection_key = (current_hub.name, target_hub.name)
+                reverse_key = (target_hub.name, current_hub.name)
 
-                current_link_drones = link_occupancy.get(connection_key, 0)
-                if current_link_drones >= max_link:
+                active_links = link_occupancy.get(connection_key, 0) + (
+                                    link_occupancy.get(reverse_key, 0)
+                                    )
+                if active_links >= max_link:
                     continue
 
-                # Execute move: register turn tracking occupancies
-                hub_occupancy[target_hub.name] = current_hub_drones + 1
-                link_occupancy[connection_key] = current_link_drones + 1
-                # Update step immediately so the
-                # log reflects the destination hub
-                drone.current_step += 1
-                turn_moves.append(f"D{drone.id}-{target_hub.name}")
-                # Apply cost depending on the destination zone type
+                # Free old space if applicable
+                if current_hub.name != self.start_hub.name:
+                    hub_occupancy[current_hub.name] = max(
+                        0, hub_occupancy.get(current_hub.name, 1) - 1
+                        )
+
+                # Reserve new spaces
+                link_occupancy[connection_key] = (
+                    link_occupancy.get(connection_key, 0) + 1
+                    )
+
                 if target_hub.zone == "restricted":
-                    # Requires 2 turns total: 1 turn to move
-                    # (this one)+1 turn locked waiting
-                    drone.turns_remaining = 1
+                    # Transit format: D<ID>-<hub1>-<hub2>
+                    turn_moves.append(
+                            f"D{drone.id}-{current_hub.name}-{target_hub.name}"
+                            )
+                    drone.in_transit_to_restricted = True
+                    hub_occupancy[target_hub.name] = (
+                        hub_occupancy.get(target_hub.name, 0) + 1
+                        )
                 else:
-                    # Normal zone requires exactly 1 turn
-                    # total(ready to move next turn)
-                    drone.turns_remaining = 0
+                    # Normal or priority move (1 turn)
+                    drone.current_step += 1
+                    turn_moves.append(f"D{drone.id}-{target_hub.name}")
+                    if target_hub.name != self.end_hub.name:
+                        hub_occupancy[target_hub.name] = (
+                            hub_occupancy.get(target_hub.name, 0) + 1
+                            )
+
             # Store current turn logs if any moves were executed
             if turn_moves:
                 # Sort alphabetically by drone ID for standardized output

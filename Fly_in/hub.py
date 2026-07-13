@@ -17,7 +17,7 @@ class Hub(BaseModel):
         """Validate that the zone type is allowed"""
         valid = {"normal", "blocked", "restricted", "priority"}
         if value not in valid:
-            raise ValueError("Invalid zone type: '{value}'")
+            raise ValueError(f"Invalid zone type: '{value}'")
         return value
 
     @field_validator("max_drones")

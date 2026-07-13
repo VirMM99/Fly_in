@@ -15,7 +15,6 @@ class Pathfinder:
         self.end_hub: Hub = end_hub
         self.hubs: list[Hub] = hubs
         self.connections: list[Connection] = connections
-
         # Build an adjacency list representation
         # of the graph for faster lookups
         # Key: hub_name->List of tuples:(neighbor_hub_obj, base_cost_weight)
@@ -35,9 +34,17 @@ class Pathfinder:
             h1, h2 = conn.hub1, conn.hub2
             # Only map links if neither endpoint is blocked
             if h1.name in self.graph and h2.name in self.graph:
+                # We assigned lower weight to the priority zones(0.5)
+                # so the algorithm actively prefers them over the normal ones(1.0)
                 # Cost is determined by the arrival/destination hub zone type
-                cost_to_h2 = 2.0 if h2.zone == "restricted" else 1.0
-                cost_to_h1 = 2.0 if h1.zone == "restricted" else 1.0
+                if h2.zone == "restricted": cost_to_h2 = 2.0
+                elif h2.zone == "priority": cost_to_h2 = 0.5
+                else: cost_to_h2 = 1.0
+
+                if h1.zone == "restricted": cost_to_h1 = 2.0
+                elif h1.zone == "priority": cost_to_h1 = 0.5
+                else: cost_to_h1 = 1.0
+
                 self.graph[h1.name].append((h2, cost_to_h2))
                 self.graph[h2.name].append((h1, cost_to_h1))
 
@@ -53,9 +60,10 @@ class Pathfinder:
         """
         # Dict to track the minimum cost seen to reach each hub
         shortest_costs: dict[str, float] = {self.start_hub.name: 0.0}
-        # Dictto track the best path to reach each hub
+        # Dict to track the best path to reach each hub
+        # We inicialice with a list thats why we put it like [self.start_hub]
         best_paths: dict[str, list[Hub]] = (
-            {self.start_hub.name: self.start_hub}
+            {self.start_hub.name: [self.start_hub]}
             )
         # Set of hubs that have already been fully processed
         visited = set()
