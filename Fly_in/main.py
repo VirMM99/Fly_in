@@ -3,7 +3,7 @@ from parser import Parser
 from pathfinder import Pathfinder
 from simulation import Simulation
 
-# ANSI Escape secuences from terminal coloring 
+# ANSI Escape secuences from terminal coloring
 # w/out external libraries
 ANSI_COLORS = {
     "red": "\033[91m",
@@ -17,6 +17,7 @@ ANSI_COLORS = {
     "none": "\033[0m"
 }
 ANSI_RESET = "\033[0m"
+
 
 def colorize_log(log_line: str, hubs_by_name: dict) -> str:
     """Colorizes terminal output tokens according to the metadata
@@ -32,15 +33,25 @@ def colorize_log(log_line: str, hubs_by_name: dict) -> str:
         if move.count("-") == 2:
             drone_part, src_name, dst_name = move.split("-")
             hub_obj = hubs_by_name.get(dst_name)
-            color_code = ANSI_COLORS.get(hub_obj.color.lower(), ANSI_COLORS["none"]) if hub_obj else ""
-            colored_moves.append(f"{drone_part}-{src_name}->{color_code}{dst_name}{ANSI_RESET}")
+
+            color_key = hub_obj.color.lower() if hub_obj else "none"
+            color_code = ANSI_COLORS.get(color_key, "")
+            move_str = (
+                f"{drone_part}-{src_name}->"
+                f"{color_code}{dst_name}{ANSI_RESET}"
+                )
+            colored_moves.append(move_str)
         else:
             # Normal movement(ex:D1-roof1)
             drone_part, dst_name = move.split("-")
-            hub_obj =hubs_by_name.get(dst_name)
-            color_code = ANSI_COLORS.get(hub_obj.color.lower(), ANSI_COLORS["none"]) if hub_obj else ""
-            colored_moves.append(f"{drone_part}-{color_code}{dst_name}{ANSI_RESET}")
+            hub_obj = hubs_by_name.get(dst_name)
+            color_key = hub_obj.color.lower() if hub_obj else "none"
+            color_code = ANSI_COLORS.get(color_key, "")
+            move_str = f"{drone_part}-{color_code}{dst_name}{ANSI_RESET}"
+            colored_moves.append(move_str)
+
     return f"{turn_prefix}" + " ".join(colored_moves)
+
 
 def main() -> None:
     """Main execution function handling parameters, routing,
@@ -57,6 +68,11 @@ def main() -> None:
         parser = Parser(map_filename)
         parser.parse()
 
+        # Explicit validation
+        if parser.start is None or parser.end is None:
+            raise ValueError(
+                "Parser failed to define valid start or end hubs"
+            )
         # 2)Compute routes
         pathfinder = Pathfinder(
             start_hub=parser.start,
@@ -94,6 +110,7 @@ def main() -> None:
     except RuntimeError as exc:
         print(f"\033[91mSimulation Deadlock: {exc}\033[0m", file=sys.stderr)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
