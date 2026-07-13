@@ -35,15 +35,22 @@ class Pathfinder:
             # Only map links if neither endpoint is blocked
             if h1.name in self.graph and h2.name in self.graph:
                 # We assigned lower weight to the priority zones(0.5)
-                # so the algorithm actively prefers them over the normal ones(1.0)
+                # so the algorithm actively prefers
+                # them over the normal ones(1.0)
                 # Cost is determined by the arrival/destination hub zone type
-                if h2.zone == "restricted": cost_to_h2 = 2.0
-                elif h2.zone == "priority": cost_to_h2 = 0.5
-                else: cost_to_h2 = 1.0
+                if h2.zone == "restricted":
+                    cost_to_h2 = 2.0
+                elif h2.zone == "priority":
+                    cost_to_h2 = 0.5
+                else:
+                    cost_to_h2 = 1.0
 
-                if h1.zone == "restricted": cost_to_h1 = 2.0
-                elif h1.zone == "priority": cost_to_h1 = 0.5
-                else: cost_to_h1 = 1.0
+                if h1.zone == "restricted":
+                    cost_to_h1 = 2.0
+                elif h1.zone == "priority":
+                    cost_to_h1 = 0.5
+                else:
+                    cost_to_h1 = 1.0
 
                 self.graph[h1.name].append((h2, cost_to_h2))
                 self.graph[h2.name].append((h1, cost_to_h1))
