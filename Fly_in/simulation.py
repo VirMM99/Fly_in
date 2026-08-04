@@ -42,7 +42,8 @@ class Simulation:
         self.connections: list[Connection] = connections
         self.drones: list[Drone] = []
         self.current_turn: int = 0
-        # Stores final output lines (ex: "T1: D1-A D2-B")
+        # Stores the raw movement lines (ex: "D1-A D2-B"). The turn prefix and
+        # colors are presentation concerns handled by the main script.
         self.log_output: list[str] = []
 
     def initialize_drones(self, paths_by_drone: dict[int, list[Hub]]) -> None:
@@ -61,10 +62,23 @@ class Simulation:
             until all drones reach the destination"""
         self.current_turn = 0
         self.log_output = []
+        # Snapshots of the drone states seen at the start of turns without
+        # movements. Used to distinguish legal waiting (subject VII.3 allows
+        # drones to stay in place) from a real deadlock, where the exact same
+        # state repeats forever because the simulation is deterministic.
+        seen_states: set[tuple[tuple[int, bool], ...]] = set()
 
         while not all(drone.has_arrived() for drone in self.drones):
             self.current_turn += 1
             turn_moves = []
+
+            # Record the full drone state (path step + transit flag) before
+            # processing the turn. If a turn executes no move, the state does
+            # not change, so comparing these snapshots detects a true deadlock.
+            state_snapshot = tuple(
+                (drone.current_step, drone.in_transit_to_restricted)
+                for drone in self.drones
+            )
 
             # Dict to manage capacity constraints for the current turn
             # Key: hub name -> number of drones
@@ -91,7 +105,9 @@ class Simulation:
                 else:
                     # Drone is static on its current hub for now
                     current_hub = drone.get_current_hub()
-                    if current_hub.name != self.start_hub():
+                    # The start hub has infinite capacity: parked drones there
+                    # must not count toward occupancy.
+                    if current_hub.name != self.start_hub.name:
                         hub_occupancy[current_hub.name] = (
                             hub_occupancy.get(current_hub.name, 0) + 1
                             )
@@ -172,17 +188,19 @@ class Simulation:
                 turn_moves.sort(
                     key=lambda x: int(x.split("-")[0].replace("D", ""))
                     )
-                self.log_output.append(
-                                    f"T{self.current_turn}: "
-                                    + " ".join(turn_moves))
+                self.log_output.append(" ".join(turn_moves))
             else:
-                # Prevent infinite loops if map
-                # is blocked or routing is invalid
-                raise RuntimeError(
+                # A turn without moves is allowed (strategic waiting). It only
+                # becomes a deadlock when the exact same state was already seen
+                # at the start of a previous empty turn: from there the
+                # deterministic simulation would loop forever.
+                if state_snapshot in seen_states:
+                    raise RuntimeError(
                                     "Simulation deadlocked at turn"
                                     f" {self.current_turn}."
                                     "Verify pathfinding logic"
                                     )
+                seen_states.add(state_snapshot)
         return self.log_output
 
     def _get_connection(self, hub1: Hub, hub2: Hub) -> Connection | None:

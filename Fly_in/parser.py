@@ -7,8 +7,13 @@ VALID_HUB_METADATA = {"zone", "color", "max_drones"}
 VALID_CONN_METADATA = {"max_link_capacity"}
 
 
+def _clean_error_msg(msg: str) -> str:
+    """Remove pydantic v2's redundant 'Value error, ' prefix"""
+    return msg.removeprefix("Value error, ")
+
+
 class Parser:
-    """Read and parse a drone map file acccording to subject constrains"""
+    """Read and parse a drone map file according to subject constraints"""
     def __init__(self, filename: str) -> None:
         self.filename: str = filename
         self.nb_drones: int = 0
@@ -24,12 +29,23 @@ class Parser:
         # the archive is write using UTF-8, that represent any char
         try:
             with open(self.filename, "r", encoding="utf-8") as file:
+                first_content_line = True
                 for line_number, line in enumerate(file, start=1):
                     # To delete \n
                     line = line.strip()
                     # Ignore empty lines and comments
                     if not line or line.startswith("#"):
                         continue
+
+                    # The subject requires the first meaningful line to define
+                    # the number of drones (comments/empty lines are ignored).
+                    if first_content_line:
+                        if not line.startswith("nb_drones:"):
+                            raise ValueError(
+                                f"Line {line_number}: The first line must "
+                                "define nb_drones"
+                            )
+                        first_content_line = False
 
                     if line.startswith("nb_drones:"):
                         self.parse_nb_drones(line, line_number)
@@ -99,19 +115,41 @@ class Parser:
                             "Hub names cannot contain '-'"
                             )
 
+        # Convert coordinates and capacity to int with clear errors. A raw
+        # int() failure would produce a message without line number, violating
+        # the subject's "clear error indicating the line and cause" rule.
+        try:
+            x = int(parts[1])
+            y = int(parts[2])
+        except ValueError as exc:
+            raise ValueError(
+                f"Line {line_number}: Coordinates must be integers"
+            ) from exc
+
+        try:
+            max_drones = int(metadata.get("max_drones", 1))
+        except ValueError as exc:
+            raise ValueError(
+                f"Line {line_number}: max_drones must be an integer"
+            ) from exc
+
         try:
             return Hub(
                 name=name,
-                x=int(parts[1]),
-                y=int(parts[2]),
+                x=x,
+                y=y,
                 zone=metadata.get("zone", "normal"),
                 color=metadata.get("color", "none"),
-                max_drones=int(metadata.get("max_drones", 1))
+                max_drones=max_drones
             )
+        # ValidationError must be caught BEFORE ValueError because in pydantic
+        # v2 ValidationError is a ValueError subclass.
         except ValidationError as exc:
             errors = exc.errors()
             custom_msg = errors[0]["msg"] if errors else "Invalid values"
-            raise ValueError(f"Line {line_number}: {custom_msg}") from exc
+            raise ValueError(
+                f"Line {line_number}: {_clean_error_msg(custom_msg)}"
+            ) from exc
 
     def _parse_metadata(self, text: str, line_number: int) -> dict[str, str]:
         """Extract [metadata] from a hub or connection"""
@@ -156,7 +194,7 @@ class Parser:
         text = line.replace("start_hub:", "").strip()
         hub = self._parse_hub_data(text, line_number)
 
-        """Bacause de subject said max_drone have to be ignore. Be infinite"""
+        # max_drones is ignored on start/end hubs: they have infinite capacity.
         hub.max_drones = 999999
 
         if hub.name in self.hubs_by_name:
@@ -235,7 +273,7 @@ class Parser:
         hub1 = self.hubs_by_name[name1]
         hub2 = self.hubs_by_name[name2]
 
-        """Validating duplicates in both direction (a-b and b-a)"""
+        # Reject duplicate connections in both directions (a-b and b-a).
         for conn in self.connections:
             if (
                 (conn.hub1.name == name1
@@ -244,17 +282,28 @@ class Parser:
             ):
                 raise ValueError(
                                 f"Line {line_number}: "
-                                f"Duplicate connection between {name1} and"
+                                f"Duplicate connection between {name1} and "
                                 f"{name2}"
                                     )
+        try:
+            max_link_capacity = int(metadata.get("max_link_capacity", 1))
+        except ValueError as exc:
+            raise ValueError(
+                f"Line {line_number}: max_link_capacity must be an integer"
+            ) from exc
+
         try:
             connection = Connection(
                 hub1=hub1,
                 hub2=hub2,
-                max_link_capacity=int(metadata.get("max_link_capacity", 1))
+                max_link_capacity=max_link_capacity
             )
             self.connections.append(connection)
+        # ValidationError must be caught BEFORE ValueError because in pydantic
+        # v2 ValidationError is a ValueError subclass.
         except ValidationError as exc:
             errors = exc.errors()
             custom_msg = errors[0]["msg"] if errors else "Invalid values"
-            raise ValueError(f"Line {line_number}: {custom_msg}") from exc
+            raise ValueError(
+                f"Line {line_number}: {_clean_error_msg(custom_msg)}"
+            ) from exc

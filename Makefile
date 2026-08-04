@@ -1,27 +1,43 @@
 PYTHON ?= python3
-PIP ?= $(PYTHON) -m pip
-MAIN ?= a_maze_ing.py
-CONFIG ?= config.txt
+VENV ?= .venv
+PY := $(VENV)/bin/python
+MAIN ?= Fly_in/main.py
+MAP ?= maps/easy/01_linear_path.txt
 
 .PHONY: install run debug clean lint lint-strict
 
+# Creates a virtual environment and installs the project dependencies.
+# A venv is used because campus Python installations are often
+# "externally managed" (PEP 668) and reject global pip installs.
 install:
-	$(PIP) install .
+	$(PYTHON) -m venv $(VENV)
+	$(VENV)/bin/pip install --upgrade pip
+	$(VENV)/bin/pip install -r requirements.txt
+
+# Runs the main script with the default (or overridden) map:
+#   make run MAP=maps/hard/01_maze_nightmare.txt
 run:
-	$(PYTHON) $(MAIN) $(CONFIG)
+	$(PY) $(MAIN) $(MAP)
 
+# Runs the main script under pdb (debug mode)
 debug:
-	$(PYTHON) -m pdb $(MAIN) $(CONFIG)
+	$(PY) -m pdb $(MAIN) $(MAP)
 
+# Removes temporary files, caches and the virtual environment
 clean:
+	rm -rf $(VENV)
 	find . -type d -name "__pycache__" -exec rm -rf {} +
-	rm -rf .mypy_cache .pytest_cache .ruff_cache build dist *.egg_info
-	find - -type f -name "*.py[co]" -delete
+	find . -type f -name "*.py[co]" -delete
+	rm -rf .mypy_cache .pytest_cache .ruff_cache build dist *.egg-info
 
+# Mandatory lint: flake8 + mypy with the exact flags required by the subject
 lint:
-	flake8 . --exclude=.venv,venv,env,__pycache__,.git
-	mypy . --explicit-package-bases --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs --exclude=.venv,venv,env,__pycache__,.git
+	$(VENV)/bin/flake8 . --exclude=.venv,venv,env,__pycache__,.git
+	$(VENV)/bin/mypy . --explicit-package-bases --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs --exclude=.venv,venv,env,__pycache__,.git
 
+# Optional stricter lint (mypy --strict). mypy is run from inside Fly_in/
+# because the modules use flat imports (e.g. "from hub import Hub") that
+# Python only resolves because the script directory is on sys.path.
 lint-strict:
-	flake8 . --exclude=.venv,venv,env,__pycache__,.git
-	mypy . --explicit-package-bases --strict --exclude=.venv,venv,env,__pycache__,.git
+	$(VENV)/bin/flake8 . --exclude=.venv,venv,env,__pycache__,.git
+	cd Fly_in && ../$(VENV)/bin/mypy . --strict

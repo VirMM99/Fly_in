@@ -1,10 +1,10 @@
 import sys
+from hub import Hub
 from parser import Parser
 from pathfinder import Pathfinder
 from simulation import Simulation
 
-# ANSI Escape secuences from terminal coloring
-# w/out external libraries
+# ANSI escape sequences for terminal coloring without external libraries
 ANSI_COLORS = {
     "red": "\033[91m",
     "green": "\033[92m",
@@ -19,52 +19,57 @@ ANSI_COLORS = {
 ANSI_RESET = "\033[0m"
 
 
-def colorize_log(log_line: str, hubs_by_name: dict) -> str:
-    """Colorizes terminal output tokens according to the metadata
-        properties of targeted hubs
-    """
-    parts = log_line.split(" ")
-    turn_prefix = parts[0]
-    movements = parts[1:]
+def colorize_log(log_line: str, hubs_by_name: dict[str, Hub]) -> str:
+    """Colorize one raw movement line using each destination hub's color.
 
+    The visual mode enriches the subject's exact format: restricted transits
+    (D<ID>-<hub1>-<hub2>) are rendered as D<ID>-<hub1>-><hub2> with the
+    target hub colored.
+    """
     colored_moves = []
-    for move in movements:
-        # Check if it's a restricted transition link(ex:D1-roof1-roof2)
+    for move in log_line.split(" "):
+        # Restricted in-flight movement, e.g. "D1-roof1-roof2"
         if move.count("-") == 2:
             drone_part, src_name, dst_name = move.split("-")
             hub_obj = hubs_by_name.get(dst_name)
-
             color_key = hub_obj.color.lower() if hub_obj else "none"
             color_code = ANSI_COLORS.get(color_key, "")
-            move_str = (
+            colored_moves.append(
                 f"{drone_part}-{src_name}->"
                 f"{color_code}{dst_name}{ANSI_RESET}"
-                )
-            colored_moves.append(move_str)
+            )
         else:
-            # Normal movement(ex:D1-roof1)
+            # Normal movement, e.g. "D1-roof1"
             drone_part, dst_name = move.split("-")
             hub_obj = hubs_by_name.get(dst_name)
             color_key = hub_obj.color.lower() if hub_obj else "none"
             color_code = ANSI_COLORS.get(color_key, "")
-            move_str = f"{drone_part}-{color_code}{dst_name}{ANSI_RESET}"
-            colored_moves.append(move_str)
+            colored_moves.append(
+                f"{drone_part}-{color_code}{dst_name}{ANSI_RESET}"
+            )
 
-    return f"{turn_prefix}" + " ".join(colored_moves)
+    return " ".join(colored_moves)
 
 
 def main() -> None:
-    """Main execution function handling parameters, routing,
-        execution and coloring rendering
+    """Main execution handling parameters, routing, execution and rendering.
+
+    Accepts an optional "--raw" flag that prints the exact subject output
+    format: one movement line per turn, no colors, no turn prefixes and no
+    banners. Without it, renders the colored visual representation.
     """
-    if len(sys.argv) != 2:
-        print("Usage: Python main.py <map_file>", file=sys.stderr)
+    if (
+        len(sys.argv) not in (2, 3)
+        or (len(sys.argv) == 3 and sys.argv[2] != "--raw")
+    ):
+        print("Usage: Python main.py <map_file> [--raw]", file=sys.stderr)
         sys.exit(1)
 
     map_filename = sys.argv[1]
+    raw_mode = len(sys.argv) == 3 and sys.argv[2] == "--raw"
 
     try:
-        # 1)Parse the map
+        # 1) Parse the map
         parser = Parser(map_filename)
         parser.parse()
 
@@ -73,7 +78,7 @@ def main() -> None:
             raise ValueError(
                 "Parser failed to define valid start or end hubs"
             )
-        # 2)Compute routes
+        # 2) Compute routes
         pathfinder = Pathfinder(
             start_hub=parser.start,
             end_hub=parser.end,
@@ -82,7 +87,7 @@ def main() -> None:
         )
         paths_by_drone = pathfinder.find_all_paths(parser.nb_drones)
 
-        # 3)Simulate operations
+        # 3) Simulate operations
         simulation = Simulation(
             nb_drones=parser.nb_drones,
             start_hub=parser.start,
@@ -92,18 +97,26 @@ def main() -> None:
         simulation.initialize_drones(paths_by_drone)
         log_output = simulation.run()
 
-        # 4)Print beautiful colored terminal output matching
-        # subject metadata requirements
-        print(
-            f"\n{ANSI_COLORS['cyan']}=== SIMULATION START "
-            f"({parser.nb_drones} Drones) ==={ANSI_RESET}"
-            )
-        for turn_log in log_output:
-            print(colorize_log(turn_log, parser.hubs_by_name))
-        print(
-            f"{ANSI_COLORS['cyan']}==== TARGET REACHED SUCCESSFULLY "
-            f"==={ANSI_RESET}\n"
-            )
+        # 4) Render: --raw matches the subject's exact format, otherwise the
+        # colored visual representation with turn labels and banners.
+        if raw_mode:
+            for turn_log in log_output:
+                print(turn_log)
+        else:
+            print(
+                f"\n{ANSI_COLORS['cyan']}=== SIMULATION START "
+                f"({parser.nb_drones} Drones) ==={ANSI_RESET}"
+                )
+            for turn_number, turn_log in enumerate(log_output, start=1):
+                colored_line = (
+                    f"T{turn_number}: "
+                    f"{colorize_log(turn_log, parser.hubs_by_name)}"
+                )
+                print(colored_line)
+            print(
+                f"{ANSI_COLORS['cyan']}==== TARGET REACHED SUCCESSFULLY "
+                f"==={ANSI_RESET}\n"
+                )
     except ValueError as exc:
         print(f"\033[91mERROR: {exc}\033[0m", file=sys.stderr)
         sys.exit(1)

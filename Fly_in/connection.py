@@ -11,7 +11,7 @@ class Connection(BaseModel):
     @field_validator("max_link_capacity")
     @classmethod
     def validate_link_capacity(cls, value: int) -> int:
-        """Validate taht max_link_capacity is a positive integer"""
+        """Validate that max_link_capacity is a positive integer"""
         if value <= 0:
             raise ValueError("max_link_capacity must be a positive integer")
         return value

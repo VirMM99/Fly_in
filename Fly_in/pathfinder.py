@@ -23,7 +23,7 @@ class Pathfinder:
 
     def _build_graph(self) -> None:
         """Constructs the internal graph structure ignoring blocked zones"""
-        # Inicialize dict for all known hubs(including start and end)
+        # Initialize dict for all known hubs (including start and end)
         all_hubs = self.hubs + [self.start_hub, self.end_hub]
         for hub in all_hubs:
             if hub.zone != "blocked":
@@ -131,10 +131,13 @@ class Pathfinder:
         for drone_id in range(1, nb_drones + 1):
             path = self._dijkstr(dynamic_penalties)
             if path is None:
-                # Fallback to prevent crashes if the map is
-                # physically disconnected
-                paths_by_drone[drone_id] = [self.start_hub]
-                continue
+                # The end hub is unreachable (disconnected or blocked map).
+                # Raise a clear error instead of parking the drone forever,
+                # which would later surface as a confusing simulation deadlock.
+                raise ValueError(
+                    "No path found from start to end for "
+                    f"drone {drone_id}: the map is unreachable or blocked"
+                )
             paths_by_drone[drone_id] = path
 
             # Apply congestion penalty to intermediate nodes of the chosen path
