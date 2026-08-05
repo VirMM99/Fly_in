@@ -68,7 +68,7 @@ class Pathfinder:
         # Dict to track the minimum cost seen to reach each hub
         shortest_costs: dict[str, float] = {self.start_hub.name: 0.0}
         # Dict to track the best path to reach each hub
-        # We inicialice with a list thats why we put it like [self.start_hub]
+        # We initialize with a list that's why we put it like [self.start_hub]
         best_paths: dict[str, list[Hub]] = (
             {self.start_hub.name: [self.start_hub]}
             )
@@ -86,7 +86,7 @@ class Pathfinder:
                     min_cost = cost
                     current_name = hub_name
 
-            # If no node was found or the remainding ones are unreachable
+            # If no node was found or the remaining ones are unreachable
             # we break
             if current_name is None or min_cost == float('inf'):
                 break
