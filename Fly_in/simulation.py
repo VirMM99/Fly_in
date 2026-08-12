@@ -70,7 +70,7 @@ class Simulation:
 
         while not all(drone.has_arrived() for drone in self.drones):
             self.current_turn += 1
-            turn_moves = []
+            turn_moves: list[str] = []
 
             # Record the full drone state (path step + transit flag) before
             # processing the turn. If a turn executes no move, the state does
