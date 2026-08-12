@@ -2,7 +2,7 @@ PYTHON ?= python3
 VENV ?= .venv
 PY := $(VENV)/bin/python
 MAIN ?= Fly_in/main.py
-MAP ?= maps/easy/01_linear_path.txt
+MAP ?= maps/easy/02_simple_fork.txt
 
 .PHONY: install run debug clean lint lint-strict
 

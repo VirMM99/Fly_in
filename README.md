@@ -184,13 +184,10 @@ Makefile         install / run / debug / clean / lint / lint-strict
 - pydantic v2: https://docs.pydantic.dev/
 - Dijkstra's algorithm: E. W. Dijkstra, "A note on two problems in connexion
   with graphs", 1959.
-- The 42 Fly_in subject (v1.6) and its official evaluation sheet.
+- The 42 Fly_in subject (v1.6).
 
 **Use of AI.** This project was developed with the assistance of an AI coding
-assistant. AI was used to audit and clean the existing codebase, to design and
-implement the deadlock detection and parser improvements, to build the Makefile
-and virtual-environment setup, and to prepare defense materials
-(`Agent.md`, `Explain.md`, `Defensa.md`, `README.md`). All algorithms and data
+assistant. AI was used to audit and clean the existing codebase. All algorithms and data
 structures (Dijkstra, capacity handling, turn engine) are original
 implementations written for this project; AI did not generate the core
 simulation or pathfinding logic from scratch.

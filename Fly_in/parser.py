@@ -69,19 +69,21 @@ class Parser:
                     raise ValueError("Parsing Error: Missing start_hub zone")
                 if self.end is None:
                     raise ValueError("Parsing Error: Missing end_hub zone")
-        except OSError as exc:
-            raise ValueError(f"Cannot open file '{self.filename}'") from exc
+        # We do an except OSError and then we raise
+        # a ValueError from the OSError
+        except OSError:
+            raise ValueError(f"Cannot open file '{self.filename}'")
 
     def parse_nb_drones(self, line: str, line_number: int) -> None:
         """Parse the number of drones"""
         text = line.replace("nb_drones:", "").strip()
         try:
             self.nb_drones = int(text)
-        except ValueError as exc:
+        except ValueError:
             raise ValueError(
                             f"Line {line_number}: "
                             "nb_drones must be an integer"
-                        ) from exc
+                        )
         if self.nb_drones <= 0:
             raise ValueError(f"Line {line_number}: nb_drones must be positive")
 
@@ -121,17 +123,17 @@ class Parser:
         try:
             x = int(parts[1])
             y = int(parts[2])
-        except ValueError as exc:
+        except ValueError:
             raise ValueError(
                 f"Line {line_number}: Coordinates must be integers"
-            ) from exc
+            )
 
         try:
             max_drones = int(metadata.get("max_drones", 1))
-        except ValueError as exc:
+        except ValueError:
             raise ValueError(
                 f"Line {line_number}: max_drones must be an integer"
-            ) from exc
+            )
 
         try:
             return Hub(
@@ -149,7 +151,7 @@ class Parser:
             custom_msg = errors[0]["msg"] if errors else "Invalid values"
             raise ValueError(
                 f"Line {line_number}: {_clean_error_msg(custom_msg)}"
-            ) from exc
+            )
 
     def _parse_metadata(self, text: str, line_number: int) -> dict[str, str]:
         """Extract [metadata] from a hub or connection"""
@@ -194,8 +196,9 @@ class Parser:
         text = line.replace("start_hub:", "").strip()
         hub = self._parse_hub_data(text, line_number)
 
-        # max_drones is ignored on start/end hubs: they have infinite capacity.
-        hub.max_drones = 999999
+        # max_drones is ignored on start/end hubs: they have
+        # 'infinite'(nb_drones) capacity.
+        hub.max_drones = self.nb_drones
 
         if hub.name in self.hubs_by_name:
             raise ValueError(
@@ -213,7 +216,9 @@ class Parser:
         text = line.replace("end_hub:", "").strip()
         hub = self._parse_hub_data(text, line_number)
 
-        hub.max_drones = 999999
+        # max_drones is ignored on start/end hubs: they have
+        # 'infinite'(nb_drones) capacity.
+        hub.max_drones = self.nb_drones
 
         if hub.name in self.hubs_by_name:
             raise ValueError(
@@ -287,10 +292,10 @@ class Parser:
                                     )
         try:
             max_link_capacity = int(metadata.get("max_link_capacity", 1))
-        except ValueError as exc:
+        except ValueError:
             raise ValueError(
                 f"Line {line_number}: max_link_capacity must be an integer"
-            ) from exc
+            )
 
         try:
             connection = Connection(
@@ -306,4 +311,4 @@ class Parser:
             custom_msg = errors[0]["msg"] if errors else "Invalid values"
             raise ValueError(
                 f"Line {line_number}: {_clean_error_msg(custom_msg)}"
-            ) from exc
+            )

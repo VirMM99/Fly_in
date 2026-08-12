@@ -70,7 +70,7 @@ solo se encarga de presentar la salida (colores o formato exacto del subject)."
   - conexiones solo entre zonas ya definidas y sin duplicados (a-b ≡ b-a).
   - metadata `[...]`: un solo bloque, cerrado, sintaxis `clave=valor`, sin
     claves duplicadas, claves permitidas según el tipo de línea.
-  - `max_drones` en start/end se ignora y se fuerza a 999999 (capacidad
+  - `max_drones` en start/end se ignora y se fuerza a nb_drones (capacidad
     infinita, según el subject).
 - Detalle importante: pydantic v2 hace que `ValidationError` sea subclase de
   `ValueError`, por eso los `except ValidationError` van **antes** de los
