@@ -18,9 +18,3 @@ venv-fly_in/
 venv_fly_in/
 .venv/
 .vscode/
-
-maze.txt
-*.swp
-*.swo
-*.swn
-*.DS_Store
