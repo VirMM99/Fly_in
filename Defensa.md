@@ -95,102 +95,31 @@ La hoja de evaluación pide: añadir `--capacity-info` para mostrar por turno
 "Zone X: Y/Z drones" y "Connection A-B: Y/Z capacity used" junto a la salida
 normal. Ejemplo de la hoja: `./main.py --capacity-info map.txt`.
 
-**El repo NO lo contiene a propósito** (para poder hacerlo en directo en
-<10 min). Plan probado y verificado en un borrador; reproducirlo:
+**El repo NO lo contiene a propósito** (para hacerlo en directo en <10 min).
+Gracias al refactor previo, el motor ya produce `simulation.capacity_log`
+(alineado 1:1 con `log_output`) y el parsing de flags es genérico
+(orden-independiente). **Solo hay que tocar `main.py` — 2 sitios, ~5 líneas:**
 
-**Paso 1 — `simulation.py`, en `__init__`** (tras `self.log_output = []`):
+**Sitio 1 — validación de flags y modo** (en `main()`):
 ```python
-# Ordered unique list of all hubs (start, end, then connection
-# endpoints). Used to report capacity info per turn.
-seen_names = {start_hub.name, end_hub.name}
-self.hubs: list[Hub] = [start_hub, end_hub]
-for conn in connections:
-    for hub in (conn.hub1, conn.hub2):
-        if hub.name not in seen_names:
-            seen_names.add(hub.name)
-            self.hubs.append(hub)
-# Per-turn capacity report: one list of info lines per turn.
-self.capacity_log: list[list[str]] = []
+    if len(positionals) != 1 or not flags <= {"--raw", "--capacity-info"}:
+        print(
+            "Usage: Python main.py <map_file> [--raw] [--capacity-info]",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    map_filename = positionals[0]
+    raw_mode = "--raw" in flags
+    capacity_info_mode = "--capacity-info" in flags
 ```
 
-**Paso 2 — `simulation.py`, final del bucle de `run()`** (justo antes del
-`return self.log_output`, al nivel del `if turn_moves: ... else: ...`):
+**Sitio 2 — bucle de render** (dentro de `for turn_number, turn_log in
+enumerate(log_output, start=1):`, tras imprimir la línea):
 ```python
-# Snapshot the capacity state of this turn for reporting: zones with
-# current occupancy vs max_drones; links with simultaneous crossings
-# (both directions) vs max_link_capacity.
-capacity_lines: list[str] = []
-for hub in self.hubs:
-    occupancy = hub_occupancy.get(hub.name, 0)
-    capacity_lines.append(
-        f"Zone {hub.name}: {occupancy}/{hub.max_drones} drones"
-    )
-for conn in self.connections:
-    used = link_occupancy.get(
-        (conn.hub1.name, conn.hub2.name), 0
-    ) + link_occupancy.get((conn.hub2.name, conn.hub1.name), 0)
-    capacity_lines.append(
-        f"Connection {conn.hub1.name}-{conn.hub2.name}: "
-        f"{used}/{conn.max_link_capacity} capacity used"
-    )
-self.capacity_log.append(capacity_lines)
-```
-
-**Paso 3 — `main.py`, sustituir la validación de argumentos** (el `if len(...)`
-actual) por parsing flexible que acepta el flag antes o después del mapa:
-```python
-flags: set[str] = set()
-map_filename: str | None = None
-for arg in sys.argv[1:]:
-    if arg.startswith("--"):
-        flags.add(arg)
-    elif map_filename is None:
-        map_filename = arg
-    else:
-        # A second positional argument is invalid
-        map_filename = None
-        break
-
-if (
-    map_filename is None
-    or not flags.issubset({"--raw", "--capacity-info"})
-):
-    print(
-        "Usage: Python main.py <map_file> [--raw] [--capacity-info]",
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-raw_mode = "--raw" in flags
-capacity_info_mode = "--capacity-info" in flags
-```
-
-**Paso 4 — `main.py`, en el render**: imprimir la línea normal y, debajo, la
-info de capacidad de ese turno (estructura que sustituye al `if raw_mode: ...
-else: ...`):
-```python
-if not raw_mode:
-    print(
-        f"\n{ANSI_COLORS['cyan']}=== SIMULATION START "
-        f"({parser.nb_drones} Drones) ==={ANSI_RESET}"
-        )
-for turn_number, turn_log in enumerate(log_output, start=1):
-    if raw_mode:
-        print(turn_log)
-    else:
-        colored_line = (
-            f"T{turn_number}: "
-            f"{colorize_log(turn_log, parser.hubs_by_name)}"
-        )
-        print(colored_line)
-    if capacity_info_mode:
-        for info in simulation.capacity_log[turn_number - 1]:
-            print(f"  {info}")
-if not raw_mode:
-    print(
-        f"{ANSI_COLORS['cyan']}==== TARGET REACHED SUCCESSFULLY "
-        f"==={ANSI_RESET}\n"
-        )
+        if capacity_info_mode:
+            for line in simulation.capacity_log[turn_number - 1]:
+                print(f"  {line}")
 ```
 
 Verificar: `python3 Fly_in/main.py maps/easy/01_linear_path.txt --capacity-info`

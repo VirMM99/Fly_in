@@ -45,6 +45,18 @@ class Simulation:
         # Stores the raw movement lines (ex: "D1-A D2-B"). The turn prefix and
         # colors are presentation concerns handled by the main script.
         self.log_output: list[str] = []
+        # Ordered unique list of all hubs (start, end, then connection
+        # endpoints). Used to build the per-turn capacity report.
+        seen_names = {start_hub.name, end_hub.name}
+        self.hubs: list[Hub] = [start_hub, end_hub]
+        for conn in connections:
+            for hub in (conn.hub1, conn.hub2):
+                if hub.name not in seen_names:
+                    seen_names.add(hub.name)
+                    self.hubs.append(hub)
+        # Per-turn capacity report: one list of info lines per turn, e.g.
+        # "Zone X: Y/Z drones" and "Connection A-B: Y/Z capacity used".
+        self.capacity_log: list[list[str]] = []
 
     def initialize_drones(self, paths_by_drone: dict[int, list[Hub]]) -> None:
         """Initializes all drones with paths
@@ -62,6 +74,7 @@ class Simulation:
             until all drones reach the destination"""
         self.current_turn = 0
         self.log_output = []
+        self.capacity_log = []
         # Snapshots of the drone states seen at the start of turns without
         # movements. Used to distinguish legal waiting (subject VII.3 allows
         # drones to stay in place) from a real deadlock, where the exact same
@@ -189,6 +202,30 @@ class Simulation:
                     key=lambda x: int(x.split("-")[0].replace("D", ""))
                     )
                 self.log_output.append(" ".join(turn_moves))
+
+                # Record the capacity state of this output turn: hub occupancy
+                # vs max_drones and simultaneous link crossings (both
+                # directions) vs max_link_capacity. Kept 1:1 with log_output
+                # so the presentation layer can match lines by index
+                # (--capacity-info in main.py).
+                capacity_lines: list[str] = []
+                for hub in self.hubs:
+                    occupancy = hub_occupancy.get(hub.name, 0)
+                    capacity_lines.append(
+                        f"Zone {hub.name}: "
+                        f"{occupancy}/{hub.max_drones} drones"
+                    )
+                for conn in self.connections:
+                    used = link_occupancy.get(
+                        (conn.hub1.name, conn.hub2.name), 0
+                    ) + link_occupancy.get(
+                        (conn.hub2.name, conn.hub1.name), 0
+                    )
+                    capacity_lines.append(
+                        f"Connection {conn.hub1.name}-{conn.hub2.name}: "
+                        f"{used}/{conn.max_link_capacity} capacity used"
+                    )
+                self.capacity_log.append(capacity_lines)
             else:
                 # A turn without moves is allowed (strategic waiting). It only
                 # becomes a deadlock when the exact same state was already seen

@@ -57,16 +57,17 @@ def main() -> None:
     Accepts an optional "--raw" flag that prints the exact subject output
     format: one movement line per turn, no colors, no turn prefixes and no
     banners. Without it, renders the colored visual representation.
+    Flags can appear before or after the map file.
     """
-    if (
-        len(sys.argv) not in (2, 3)
-        or (len(sys.argv) == 3 and sys.argv[2] != "--raw")
-    ):
+    flags: set[str] = {arg for arg in sys.argv[1:] if arg.startswith("--")}
+    positionals = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
+
+    if len(positionals) != 1 or not flags <= {"--raw"}:
         print("Usage: Python main.py <map_file> [--raw]", file=sys.stderr)
         sys.exit(1)
 
-    map_filename = sys.argv[1]
-    raw_mode = len(sys.argv) == 3 and sys.argv[2] == "--raw"
+    map_filename = positionals[0]
+    raw_mode = "--raw" in flags
 
     try:
         # 1) Parse the map
@@ -99,20 +100,21 @@ def main() -> None:
 
         # 4) Render: --raw matches the subject's exact format, otherwise the
         # colored visual representation with turn labels and banners.
-        if raw_mode:
-            for turn_log in log_output:
-                print(turn_log)
-        else:
+        if not raw_mode:
             print(
                 f"\n{ANSI_COLORS['cyan']}=== SIMULATION START "
                 f"({parser.nb_drones} Drones) ==={ANSI_RESET}"
                 )
-            for turn_number, turn_log in enumerate(log_output, start=1):
+        for turn_number, turn_log in enumerate(log_output, start=1):
+            if raw_mode:
+                print(turn_log)
+            else:
                 colored_line = (
                     f"T{turn_number}: "
                     f"{colorize_log(turn_log, parser.hubs_by_name)}"
                 )
                 print(colored_line)
+        if not raw_mode:
             print(
                 f"{ANSI_COLORS['cyan']}==== TARGET REACHED SUCCESSFULLY "
                 f"==={ANSI_RESET}\n"

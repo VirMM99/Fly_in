@@ -136,12 +136,12 @@ franja = mejor; los objetivos de referencia se cumplen.
 "Zone X: Y/Z drones" y "Connection A-B: Y/Z capacity used", junto a la salida
 normal. Máximo 10 minutos.
 
-⚠️ **Preparado para hacerse EN VIVO** (el repo no lo contiene a propósito,
-para poder demostrar el cambio en directo). El plan exacto está en
-`Defensa.md` §3 (LC0), con los 4 pasos (2 en `simulation.py`, 2 en `main.py`)
-probados y verificados. Clave: los datos de capacidad ya se calculan en el
-motor (`hub_occupancy`/`link_occupancy`); solo hay que exponerlos turno a
-turno, no recalcular nada.
+⚠️ **Preparado para hacerse EN VIVO** (el repo no lo contiene a propósito).
+Refactor previo para simplificarlo al máximo: `simulation.py` ya produce
+`simulation.capacity_log` (1:1 con `log_output`) y `main.py` ya tiene parsing
+de flags genérico. El cambio en vivo son **~5 líneas solo en `main.py`**
+(2 sitios: validación de flags + bloque de impresión en el bucle) — plan exacto
+en `Defensa.md` §3 (LC0).
 
 Verificación tras hacerlo:
 ```
