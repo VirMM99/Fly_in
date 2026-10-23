@@ -18,9 +18,3 @@ venv-fly_in/
 venv_fly_in/
 .venv/
 .vscode/
-
-# Ignore specific folders (e.g., moulinette grading directory)
-Agent.md
-Eval.md
-Defensa.md
-Explain.md
